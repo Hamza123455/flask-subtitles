@@ -1,25 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Urdu Subtitles Generator</title>
+  <meta charset="UTF-8">
+  <title>Upload Video for Urdu Subtitles</title>
 </head>
 <body>
-  <h2>Auto Urdu Subtitles Generator</h2>
-
-  {% if step == "upload" %}
-    <form method="POST" enctype="multipart/form-data" action="/upload">
-      <input type="file" name="video" required>
-      <input type="submit" value="Upload & Transcribe">
-    </form>
-  {% elif step == "edit" %}
-    <form method="POST" action="/burn">
-      <label>Edit Urdu Subtitles:</label><br>
-      <textarea name="subtitles" rows="10" cols="60">{{ subtitles }}</textarea><br>
-      <input type="submit" value="Burn Subtitles to Video">
-    </form>
-  {% elif step == "done" %}
-    <p>✅ Subtitles burned successfully.</p>
-    <a href="/download">Download Subtitled Video</a>
-  {% endif %}
+  <h2>Upload Video to Auto Add Urdu Subtitles</h2>
+  <form method="POST" enctype="multipart/form-data" action="/upload">
+    <input type="file" name="video" accept="video/*" required />
+    <br/><br/>
+    <input type="submit" value="Upload and Generate Subtitles" />
+  </form>
 </body>
 </html>
