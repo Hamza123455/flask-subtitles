@@ -6,7 +6,8 @@ import os
 
 app = Flask(__name__)
 
-ASSEMBLYAI_API_KEY = 'e89c52b5983f4fcfbad631db7f43bd7d'
+ASSEMBLYAI_API_KEY = 'e89c52b5983f4fcfbad631db7f43bd7d'  # Replace with your valid key
+
 UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
 
@@ -14,6 +15,7 @@ headers = {
     'authorization': ASSEMBLYAI_API_KEY,
     'content-type': 'application/json'
 }
+
 
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
@@ -23,17 +25,23 @@ def upload_file_to_assemblyai(filename):
         raise Exception(f"Upload failed: {data}")
     return data['upload_url']
 
+
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
+        "auto_chapters": False,
+        "punctuate": True,
         "format_text": True,
-        "punctuate": True
+        "language_detection": True,
+        "iab_categories": False,
+        "speaker_labels": False
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
     return data['id']
+
 
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
@@ -45,15 +53,27 @@ def wait_for_completion(transcript_id):
             raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
         time.sleep(5)
 
+
 def translate_text(text, target_lang='ur'):
-    response = requests.post("https://libretranslate.com/translate", data={
-        "q": text,
-        "source": "auto",
-        "target": target_lang,
-        "format": "text"
-    })
-    data = response.json()
-    return data.get('translatedText', '[Translation failed]')
+    try:
+        response = requests.post("https://translate.argosopentech.com/translate", data={
+            "q": text,
+            "source": "auto",
+            "target": target_lang,
+            "format": "text"
+        }, timeout=30)
+
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('translatedText', '[Translation missing]')
+        else:
+            print("Translation API error:", response.status_code, response.text)
+            return "[Translation API Error]"
+
+    except Exception as e:
+        print("Translation failed:", e)
+        return "[Translation Exception]"
+
 
 def create_srt(transcript_json, translated_text):
     words = transcript_json.get('words', [])
@@ -96,11 +116,12 @@ def create_srt(transcript_json, translated_text):
     with open('subs.srt', 'w', encoding='utf-8') as f:
         i = 0
         for idx, (start, end) in enumerate(segments):
-            line = ' '.join(urdu_lines[i:i+avg_words])
+            line = ' '.join(urdu_lines[i:i + avg_words])
             i += avg_words
-            f.write(f"{idx+1}\n")
+            f.write(f"{idx + 1}\n")
             f.write(f"{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n")
             f.write(line + "\n\n")
+
 
 def read_srt_file():
     if os.path.exists('subs.srt'):
@@ -108,9 +129,11 @@ def read_srt_file():
             return f.read()
     return ""
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -121,11 +144,13 @@ def upload():
     transcript_id = request_transcription(upload_url)
     transcript_json = wait_for_completion(transcript_id)
 
-    translated = translate_text(transcript_json.get('text', ''))
+    original_text = transcript_json.get('text', '')
+    translated = translate_text(original_text)
     create_srt(transcript_json, translated)
 
     srt_text = read_srt_file()
     return render_template('edit.html', srt_text=srt_text)
+
 
 @app.route('/save_subtitles', methods=['POST'])
 def save_subtitles():
@@ -140,9 +165,11 @@ def save_subtitles():
 
     return "Done! <a href='/download'>Download Subtitled Video</a>"
 
+
 @app.route('/download')
 def download():
     return send_file("static/output.mp4", as_attachment=True)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
