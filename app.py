@@ -3,53 +3,39 @@ import subprocess
 import requests
 import time
 import os
-import openai
 
 app = Flask(__name__)
 
-# === CONFIGURATION ===
 ASSEMBLYAI_API_KEY = 'e89c52b5983f4fcfbad631db7f43bd7d'
-OPENAI_API_KEY = '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'  # Use your OpenAI key here
-openai.api_key = OPENAI_API_KEY
+OPENAI_API_KEY = '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'
 
 UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
 
-HEADERS_ASSEMBLY = {
+headers = {
     'authorization': ASSEMBLYAI_API_KEY,
     'content-type': 'application/json'
 }
 
-# === FUNCTIONS ===
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
-    data = response.json()
-    if 'upload_url' not in data:
-        raise Exception(f"Upload failed: {data}")
-    return data['upload_url']
+    return response.json()['upload_url']
 
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
-        "language_detection": True,
-        "format_text": True,
         "punctuate": True,
+        "format_text": True,
         "auto_chapters": False,
         "iab_categories": False,
-        "entity_detection": False,
+        "language_detection": True,
         "speaker_labels": False,
-        "word_boost": [],
-        "boost_param": "low",
-        "disfluencies": False,
+        "entity_detection": False,
         "sentiment_analysis": False,
-        "auto_highlights": False,
-        "summarization": False,
-        "utterances": False,
-        "paragraphs": False,
-        "webhook_url": None
+        "auto_highlights": False
     }
-    response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=HEADERS_ASSEMBLY)
+    response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
@@ -58,26 +44,39 @@ def request_transcription(upload_url):
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
     while True:
-        response = requests.get(polling_endpoint, headers=HEADERS_ASSEMBLY).json()
+        response = requests.get(polling_endpoint, headers=headers).json()
         if response['status'] == 'completed':
             return response
         elif response['status'] == 'error':
             raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
         time.sleep(5)
 
-def translate_to_urdu_gpt(text):
+def translate_text(text, target_lang='ur'):
+    headers = {
+        'Authorization': f'Bearer {OPENAI_API_KEY}',
+        'Content-Type': 'application/json'
+    }
+
+    prompt = f"Translate the following text to Urdu:\n\n{text}"
+
+    payload = {
+        "model": "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": "You are a translation assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    data = response.json()
+
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a professional translator that translates anything into fluent Urdu."},
-                {"role": "user", "content": f"Translate this into Urdu: {text}"}
-            ]
-        )
-        return response['choices'][0]['message']['content']
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print("[Translation Error]", e)
-        return text
+        print(data)
+        return "[Translation failed]"
 
 def create_srt(transcript_json, translated_text):
     words = transcript_json.get('words', [])
@@ -132,7 +131,6 @@ def read_srt_file():
             return f.read()
     return ""
 
-# === ROUTES ===
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -146,8 +144,7 @@ def upload():
     transcript_id = request_transcription(upload_url)
     transcript_json = wait_for_completion(transcript_id)
 
-    original_text = transcript_json.get('text', '')
-    translated = translate_to_urdu_gpt(original_text)
+    translated = translate_text(transcript_json.get('text', ''))
     create_srt(transcript_json, translated)
 
     srt_text = read_srt_file()
