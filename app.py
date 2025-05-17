@@ -26,10 +26,8 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
-        "auto_detect": True,         # 🟢 Enable automatic language detection
         "format_text": True,
-        "punctuate": True,
-        "language_detection": True
+        "punctuate": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
@@ -50,7 +48,7 @@ def wait_for_completion(transcript_id):
 def translate_text(text, target_lang='ur'):
     response = requests.post("https://libretranslate.com/translate", data={
         "q": text,
-        "source": "auto",         # 🟢 Auto-detect source language
+        "source": "auto",
         "target": target_lang,
         "format": "text"
     })
