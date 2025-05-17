@@ -27,6 +27,7 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
+        "language_code": "ur",
         "format_text": True,
         "punctuate": True,
         "word_boost": []
