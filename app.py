@@ -4,6 +4,7 @@ import requests
 import time
 import os
 from googletrans import Translator
+import sys
 
 app = Flask(__name__)
 
@@ -19,54 +20,31 @@ headers = {
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
-
-    print(f"[Upload] Status code: {response.status_code}")
-    print(f"[Upload] Response text: {response.text}")
-
-    if response.status_code != 200:
-        raise Exception(f"Upload failed with status code {response.status_code}: {response.text}")
-
-    try:
-        data = response.json()
-    except Exception as e:
-        raise Exception(f"Upload response JSON parse error: {e}\nResponse text: {response.text}")
-
+    data = response.json()
     if 'upload_url' not in data:
         raise Exception(f"Upload failed: {data}")
-
     return data['upload_url']
 
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
         "format_text": True,
-        "punctuate": True
+        "punctuate": True,
+        "language_code": "en"
     }
-
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
-    print(f"[Transcription Request] Status code: {response.status_code}")
-    print(f"[Transcription Request] Response text: {response.text}")
-
-    if response.status_code != 200:
-        raise Exception(f"Transcription request failed with status {response.status_code}: {response.text}")
-
-    try:
-        data = response.json()
-    except Exception as e:
-        raise Exception(f"Transcription request JSON parse error: {e}\nResponse text: {response.text}")
-
+    data = response.json()
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
-
     return data['id']
 
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
-
     while True:
         response = requests.get(polling_endpoint, headers=headers)
         print(f"[Polling] Status code: {response.status_code}")
         print(f"[Polling] Response text: {response.text}")
+        sys.stdout.flush()
 
         if response.status_code != 200:
             raise Exception(f"Polling failed with status {response.status_code}: {response.text}")
@@ -151,10 +129,26 @@ def upload():
     video.save('input.mp4')
 
     try:
+        print("Uploading file to AssemblyAI...")
+        sys.stdout.flush()
         upload_url = upload_file_to_assemblyai('input.mp4')
+        print(f"Upload URL: {upload_url}")
+        sys.stdout.flush()
+
+        print("Requesting transcription...")
+        sys.stdout.flush()
         transcript_id = request_transcription(upload_url)
+        print(f"Transcript ID: {transcript_id}")
+        sys.stdout.flush()
+
+        print("Waiting for transcription to complete...")
+        sys.stdout.flush()
         transcript_json = wait_for_completion(transcript_id)
+        print("Transcription completed.")
+        sys.stdout.flush()
     except Exception as e:
+        print(f"Error: {e}")
+        sys.stdout.flush()
         return f"Error during transcription process: {e}"
 
     translated = translate_text(transcript_json.get('text', ''))
@@ -181,4 +175,6 @@ def download():
     return send_file("static/output.mp4", as_attachment=True)
 
 if __name__ == '__main__':
+    if not os.path.exists('static'):
+        os.makedirs('static')
     app.run(host='0.0.0.0', port=5000)
