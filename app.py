@@ -28,6 +28,7 @@ def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
         "language_code": "ur",
+        "speech_model": "nano",
         "format_text": True,
         "punctuate": True,
         "word_boost": []
