@@ -3,6 +3,7 @@ import subprocess
 import requests
 import time
 import os
+from googletrans import Translator
 
 app = Flask(__name__)
 
@@ -19,7 +20,6 @@ def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
     data = response.json()
-    print("Upload response:", data)
     if 'upload_url' not in data:
         raise Exception(f"Upload failed: {data}")
     return data['upload_url']
@@ -27,15 +27,11 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
-        "language_code": "tr",
-        "speech_model": "nano",
         "format_text": True,
-        "punctuate": True,
-        "word_boost": []
+        "punctuate": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
-    print("Transcription request:", data)
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
     return data['id']
@@ -44,21 +40,25 @@ def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
     while True:
         response = requests.get(polling_endpoint, headers=headers).json()
-        print("Polling response:", response)
         if response['status'] == 'completed':
             return response
         elif response['status'] == 'error':
             raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
         time.sleep(5)
 
-def save_srt_file(transcript_json):
+def translate_text(text, target_lang='ur'):
+    translator = Translator()
+    translated = translator.translate(text, dest=target_lang)
+    return translated.text
+
+def create_srt(transcript_json, translated_text):
     words = transcript_json.get('words', [])
     if not words:
         with open('subs.srt', 'w', encoding='utf-8') as f:
-            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{transcript_json.get('text', '')}\n")
+            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{translated_text}\n")
         return
 
-    subs = []
+    segments = []
     chunk = []
     chunk_start = None
     chunk_end = None
@@ -67,21 +67,21 @@ def save_srt_file(transcript_json):
     for word in words:
         start = word['start']
         end = word['end']
-        text = word['text']
-
         if chunk_start is None:
             chunk_start = start
         chunk_end = end
-        chunk.append(text)
-
-        if (chunk_end - chunk_start) > max_duration_ms:
-            subs.append((chunk_start, chunk_end, ' '.join(chunk)))
+        chunk.append((start, end))
+        if chunk_end - chunk_start > max_duration_ms:
+            segments.append((chunk_start, chunk_end))
             chunk = []
             chunk_start = None
             chunk_end = None
 
     if chunk:
-        subs.append((chunk_start, chunk_end, ' '.join(chunk)))
+        segments.append((chunk_start, chunk_end))
+
+    urdu_lines = translated_text.split(' ')
+    avg_words = max(1, len(urdu_lines) // len(segments))
 
     def ms_to_srt_time(ms):
         s, ms = divmod(ms, 1000)
@@ -90,10 +90,13 @@ def save_srt_file(transcript_json):
         return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
     with open('subs.srt', 'w', encoding='utf-8') as f:
-        for i, (start, end, text) in enumerate(subs, 1):
-            f.write(f"{i}\n")
+        i = 0
+        for idx, (start, end) in enumerate(segments):
+            line = ' '.join(urdu_lines[i:i+avg_words])
+            i += avg_words
+            f.write(f"{idx+1}\n")
             f.write(f"{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n")
-            f.write(text + "\n\n")
+            f.write(line + "\n\n")
 
 def read_srt_file():
     if os.path.exists('subs.srt'):
@@ -113,7 +116,9 @@ def upload():
     upload_url = upload_file_to_assemblyai('input.mp4')
     transcript_id = request_transcription(upload_url)
     transcript_json = wait_for_completion(transcript_id)
-    save_srt_file(transcript_json)
+
+    translated = translate_text(transcript_json.get('text', ''))
+    create_srt(transcript_json, translated)
 
     srt_text = read_srt_file()
     return render_template('edit.html', srt_text=srt_text)
