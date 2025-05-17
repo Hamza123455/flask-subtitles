@@ -29,6 +29,7 @@ def request_transcription(upload_url):
         "audio_url": upload_url,
         "format_text": True,
         "punctuate": True,
+        "word_boost": []
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
