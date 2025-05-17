@@ -3,13 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <title>Upload Video for Urdu Subtitles</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+      background-color: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+
+    form {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+      box-sizing: border-box;
+    }
+
+    input[type="file"] {
+      width: 100%;
+    }
+
+    input[type="submit"] {
+      width: 100%;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+  </style>
 </head>
 <body>
-  <h2>Upload Video to Auto Add Urdu Subtitles</h2>
+  <h2>Follow The Instructions</h2>
   <form method="POST" enctype="multipart/form-data" action="/upload">
     <input type="file" name="video" accept="video/*" required />
     <br/><br/>
-    <input type="submit" value="Upload and Generate Subtitles" />
+    <input type="submit" value="Upload" />
   </form>
 </body>
 </html>
