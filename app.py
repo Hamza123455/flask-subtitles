@@ -5,66 +5,58 @@ import time
 
 app = Flask(__name__)
 
-# === Your AssemblyAI API Key ===
-ASSEMBLYAI_API_KEY = 'e89c52b5983f4fcfbad631db7f43bd7d'
-
-# === AssemblyAI API Endpoints ===
+ASSEMBLYAI_API_KEY = 'your_assemblyai_api_key_here'  # <--- Replace with your key
 UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
 
-# === HTTP Headers ===
 headers = {
     'authorization': ASSEMBLYAI_API_KEY,
     'content-type': 'application/json'
 }
 
-# === Upload video to AssemblyAI ===
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
-    data = response.json()
-    print("Upload response:", data)  # Debug
-    if 'upload_url' not in data:
-        raise Exception(f"Upload failed: {data}")
-    return data['upload_url']
+    return response.json()['upload_url']
 
-# === Request transcription in Urdu using nano model ===
 def request_transcription(upload_url):
     json = {
         "audio_url": upload_url,
-        "language_code": "ur",
-        "speech_model": "nano",
+        "language_code": "ur",  # Urdu language code
+        "auto_chapters": False,
+        "auto_highlights": False,
         "format_text": True,
         "punctuate": True,
-        "words": True
+        "language_model": "assemblyai_default"
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json, headers=headers)
-    data = response.json()
-    print("Transcription request response:", data)  # Debug
-    if 'id' not in data:
-        raise Exception(f"Transcription request failed: {data}")
-    return data['id']
+    return response.json()['id']
 
-# === Wait until transcription completes ===
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
     while True:
         response = requests.get(polling_endpoint, headers=headers).json()
-        print("Polling response:", response)  # Debug
         if response['status'] == 'completed':
             return response
         elif response['status'] == 'error':
-            raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
+            raise Exception("Transcription failed: " + response['error'])
         time.sleep(5)
 
-# === Convert words to SRT subtitle format ===
 def save_srt_file(transcript_json):
+    srt_text = transcript_json.get('words', [])
+    # AssemblyAI does not return srt directly; we will build a simple srt file:
+    # For simplicity, we will use `transcript_json['words']` timestamps
+
+    # Or use the 'text' and 'words' timestamps to create srt
+    
     words = transcript_json.get('words', [])
     if not words:
+        # fallback, just save full transcript in srt format with 1 entry
         with open('subs.srt', 'w', encoding='utf-8') as f:
-            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{transcript_json.get('text', '')}\n")
+            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{transcript_json['text']}\n")
         return
-
+    
+    # Split words into subtitle chunks (e.g. 5 seconds chunks)
     subs = []
     chunk = []
     chunk_start = None
@@ -102,6 +94,7 @@ def save_srt_file(transcript_json):
             f.write(f"{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n")
             f.write(text + "\n\n")
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -111,30 +104,19 @@ def upload():
     video = request.files['video']
     video.save('input.mp4')
 
-    # Upload to AssemblyAI
+    # Upload video to AssemblyAI
     upload_url = upload_file_to_assemblyai('input.mp4')
 
     # Request Urdu transcription
     transcript_id = request_transcription(upload_url)
 
-    # Wait for processing
+    # Wait for completion
     transcript_json = wait_for_completion(transcript_id)
 
-    # Save original subtitles
+    # Save subtitles file
     save_srt_file(transcript_json)
 
-    # Load subtitles to show in form
-    with open('subs.srt', 'r', encoding='utf-8') as f:
-        srt_text = f.read()
-
-    return render_template('edit.html', srt_text=srt_text)
-
-@app.route('/save_subtitles', methods=['POST'])
-def save_subtitles():
-    srt_text = request.form['srt']
-    with open('subs.srt', 'w', encoding='utf-8') as f:
-        f.write(srt_text)
-
+    # Burn subtitles into video using ffmpeg
     subprocess.run([
         'ffmpeg', '-i', 'input.mp4', '-vf', 'subtitles=subs.srt',
         '-c:a', 'copy', 'static/output.mp4', '-y'
