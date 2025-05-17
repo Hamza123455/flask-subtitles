@@ -52,13 +52,81 @@
     input[type="submit"]:hover {
       background-color: #45a049;
     }
+
+    #progress-container {
+      margin-top: 15px;
+      width: 100%;
+      display: none;
+    }
+
+    #progress-bar {
+      width: 0%;
+      height: 18px;
+      background-color: #4CAF50;
+      border-radius: 5px;
+      transition: width 0.3s ease;
+    }
+
+    #progress-text {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
   <h2>Upload Video</h2>
-  <form method="POST" enctype="multipart/form-data" action="/upload">
+  <form id="upload-form">
     <input type="file" name="video" accept="video/*" required />
     <input type="submit" value="Upload and Generate Subtitles" />
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+      <div id="progress-text">Uploading...</div>
+    </div>
   </form>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const fileInput = form.querySelector('input[type="file"]');
+      const file = fileInput.files[0];
+
+      if (!file) return alert('Please select a video file');
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      progressText.innerText = 'Uploading...';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/upload', true);
+
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          progressBar.style.width = percent + '%';
+        }
+      };
+
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          progressBar.style.width = '100%';
+          progressText.innerText = 'Processing subtitles...';
+          document.body.innerHTML = xhr.responseText;
+        } else {
+          progressText.innerText = 'Upload failed!';
+        }
+      };
+
+      xhr.send(formData);
+    });
+  </script>
 </body>
 </html>
