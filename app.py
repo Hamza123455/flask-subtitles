@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 
 ASSEMBLYAI_API_KEY = 'e89c52b5983f4fcfbad631db7f43bd7d'
-OPENAI_API_KEY = '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'
+OPENAI_API_KEY = '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'
 
 UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload'
 TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript'
