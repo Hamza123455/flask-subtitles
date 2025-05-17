@@ -32,10 +32,11 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json = {
         "audio_url": upload_url,
-        "language_code": "ur",             # Urdu language
-        "speech_model": "nano",            # Required for Urdu
+        "language_code": "ur",
+        "speech_model": "nano",
         "format_text": True,
-        "punctuate": True
+        "punctuate": True,
+        "words": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json, headers=headers)
     data = response.json()
@@ -101,8 +102,6 @@ def save_srt_file(transcript_json):
             f.write(f"{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n")
             f.write(text + "\n\n")
 
-# === Flask Routes ===
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -121,10 +120,21 @@ def upload():
     # Wait for processing
     transcript_json = wait_for_completion(transcript_id)
 
-    # Generate .srt subtitle file
+    # Save original subtitles
     save_srt_file(transcript_json)
 
-    # Burn subtitles into video using ffmpeg
+    # Load subtitles to show in form
+    with open('subs.srt', 'r', encoding='utf-8') as f:
+        srt_text = f.read()
+
+    return render_template('edit.html', srt_text=srt_text)
+
+@app.route('/save_subtitles', methods=['POST'])
+def save_subtitles():
+    srt_text = request.form['srt']
+    with open('subs.srt', 'w', encoding='utf-8') as f:
+        f.write(srt_text)
+
     subprocess.run([
         'ffmpeg', '-i', 'input.mp4', '-vf', 'subtitles=subs.srt',
         '-c:a', 'copy', 'static/output.mp4', '-y'
@@ -136,6 +146,5 @@ def upload():
 def download():
     return send_file("static/output.mp4", as_attachment=True)
 
-# === Start the app ===
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000) 
+    app.run(host='0.0.0.0', port=5000)
