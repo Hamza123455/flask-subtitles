@@ -78,6 +78,21 @@
             font-size: 16px;
         }
 
+        #download-link {
+            margin-top: 25px;
+            font-size: 18px;
+            display: none;
+            text-align: center;
+        }
+
+        #download-link a {
+            text-decoration: none;
+            color: #fff;
+            background-color: #2196F3;
+            padding: 12px 25px;
+            border-radius: 6px;
+        }
+
         @media (max-width: 600px) {
             textarea {
                 height: 400px;
@@ -96,6 +111,11 @@
             <div id="progress-bar"></div>
             <div id="progress-text">Burning subtitles...</div>
         </div>
+
+        <div id="download-link">
+            <p>✅ Subtitles added successfully!</p>
+            <a href="/download" download>Download Subtitled Video</a>
+        </div>
     </form>
 
     <script>
@@ -103,6 +123,7 @@
         const progressContainer = document.getElementById('progress-container');
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
+        const downloadLink = document.getElementById('download-link');
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -111,7 +132,6 @@
             progressBar.style.width = '0%';
             progressText.innerText = 'Burning subtitles...';
 
-            // Simulate fake progress bar while waiting for backend
             let percent = 0;
             const interval = setInterval(() => {
                 percent += 5;
@@ -125,16 +145,14 @@
             fetch('/save_subtitles', {
                 method: 'POST',
                 body: formData
-            }).then(response => response.text()).then(html => {
+            }).then(response => {
                 clearInterval(interval);
                 progressBar.style.width = '100%';
-                progressText.innerText = 'Done! Redirecting...';
-                setTimeout(() => {
-                    document.body.innerHTML = html;
-                }, 500);
+                progressText.innerText = 'Subtitles burned successfully!';
+                downloadLink.style.display = 'block';
             }).catch(() => {
                 clearInterval(interval);
-                progressText.innerText = 'Error while processing video!';
+                progressText.innerText = '❌ Error while burning subtitles!';
             });
         });
     </script>
