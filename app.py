@@ -19,7 +19,12 @@ headers = {
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
-    data = response.json()
+    if response.status_code != 200:
+        raise Exception(f"Upload failed with status code {response.status_code}: {response.text}")
+    try:
+        data = response.json()
+    except ValueError:
+        raise Exception(f"Upload response not valid JSON: {response.text}")
     if 'upload_url' not in data:
         raise Exception(f"Upload failed: {data}")
     return data['upload_url']
@@ -31,7 +36,12 @@ def request_transcription(upload_url):
         "punctuate": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
-    data = response.json()
+    if response.status_code != 200:
+        raise Exception(f"Transcription request failed with status {response.status_code}: {response.text}")
+    try:
+        data = response.json()
+    except ValueError:
+        raise Exception(f"Transcription response not valid JSON: {response.text}")
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
     return data['id']
@@ -39,11 +49,18 @@ def request_transcription(upload_url):
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
     while True:
-        response = requests.get(polling_endpoint, headers=headers).json()
-        if response['status'] == 'completed':
-            return response
-        elif response['status'] == 'error':
-            raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
+        response = requests.get(polling_endpoint, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"Polling failed with status {response.status_code}: {response.text}")
+        try:
+            data = response.json()
+        except ValueError:
+            raise Exception(f"Polling response not valid JSON: {response.text}")
+
+        if data['status'] == 'completed':
+            return data
+        elif data['status'] == 'error':
+            raise Exception("Transcription failed: " + data.get('error', 'Unknown error'))
         time.sleep(5)
 
 def translate_text(text, target_lang='ur'):
