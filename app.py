@@ -3,8 +3,6 @@ import subprocess
 import requests
 import time
 import os
-import sys
-from googletrans import Translator
 
 app = Flask(__name__)
 
@@ -20,34 +18,20 @@ headers = {
 def upload_file_to_assemblyai(filename):
     with open(filename, 'rb') as f:
         response = requests.post(UPLOAD_ENDPOINT, headers={'authorization': ASSEMBLYAI_API_KEY}, data=f)
-
-    print(f"Upload status code: {response.status_code}")
-    print(f"Upload response text: {response.text}")
-    sys.stdout.flush()
-
-    try:
-        data = response.json()
-    except Exception as e:
-        raise Exception(f"Upload JSON decode error: {e}\nResponse text: {response.text}")
-
+    data = response.json()
     if 'upload_url' not in data:
         raise Exception(f"Upload failed: {data}")
-
     return data['upload_url']
 
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
+        "auto_detect": True,         # 🟢 Enable automatic language detection
         "format_text": True,
         "punctuate": True,
-        "language_code": "tr"
+        "language_detection": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
-
-    print(f"Transcription request status: {response.status_code}")
-    print(f"Transcription response text: {response.text}")
-    sys.stdout.flush()
-
     data = response.json()
     if 'id' not in data:
         raise Exception(f"Transcription request failed: {data}")
@@ -56,22 +40,22 @@ def request_transcription(upload_url):
 def wait_for_completion(transcript_id):
     polling_endpoint = f"{TRANSCRIPT_ENDPOINT}/{transcript_id}"
     while True:
-        response = requests.get(polling_endpoint, headers=headers)
-        data = response.json()
-
-        print(f"Polling status: {data.get('status')}")
-        sys.stdout.flush()
-
-        if data['status'] == 'completed':
-            return data
-        elif data['status'] == 'error':
-            raise Exception("Transcription failed: " + data.get('error', 'Unknown error'))
+        response = requests.get(polling_endpoint, headers=headers).json()
+        if response['status'] == 'completed':
+            return response
+        elif response['status'] == 'error':
+            raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
         time.sleep(5)
 
 def translate_text(text, target_lang='ur'):
-    translator = Translator()
-    translated = translator.translate(text, dest=target_lang)
-    return translated.text
+    response = requests.post("https://libretranslate.com/translate", data={
+        "q": text,
+        "source": "auto",         # 🟢 Auto-detect source language
+        "target": target_lang,
+        "format": "text"
+    })
+    data = response.json()
+    return data.get('translatedText', '[Translation failed]')
 
 def create_srt(transcript_json, translated_text):
     words = transcript_json.get('words', [])
@@ -135,19 +119,15 @@ def upload():
     video = request.files['video']
     video.save('input.mp4')
 
-    try:
-        upload_url = upload_file_to_assemblyai('input.mp4')
-        transcript_id = request_transcription(upload_url)
-        transcript_json = wait_for_completion(transcript_id)
+    upload_url = upload_file_to_assemblyai('input.mp4')
+    transcript_id = request_transcription(upload_url)
+    transcript_json = wait_for_completion(transcript_id)
 
-        translated = translate_text(transcript_json.get('text', ''))
-        create_srt(transcript_json, translated)
+    translated = translate_text(transcript_json.get('text', ''))
+    create_srt(transcript_json, translated)
 
-        srt_text = read_srt_file()
-        return render_template('edit.html', srt_text=srt_text)
-
-    except Exception as e:
-        return f"Error: {e}"
+    srt_text = read_srt_file()
+    return render_template('edit.html', srt_text=srt_text)
 
 @app.route('/save_subtitles', methods=['POST'])
 def save_subtitles():
