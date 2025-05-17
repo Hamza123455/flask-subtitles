@@ -129,7 +129,7 @@ def save_subtitles():
         '-c:a', 'copy', 'static/output.mp4', '-y'
     ])
 
-    return {'status': 'success'}
+    return "Done! <a href='/download'>Download Subtitled Video</a>"
 
 @app.route('/download')
 def download():
