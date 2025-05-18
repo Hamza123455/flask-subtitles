@@ -3,14 +3,9 @@ import subprocess
 import requests
 import time
 import os
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Load API keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY")
+# Hardcoded API Key
+ASSEMBLYAI_API_KEY = "e89c52b5983f4fcfbad631db7f43bd7d"
 
 app = Flask(__name__)
 
@@ -33,11 +28,9 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
+        "language_code": "ur",  # Force transcription in Urdu
         "format_text": True,
-        "punctuate": True,
-        "auto_chapters": False,
-        "speaker_labels": False,
-        "language_detection": True  # Let AssemblyAI detect language automatically
+        "punctuate": True
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
@@ -58,23 +51,11 @@ def wait_for_completion(transcript_id):
             raise Exception(f"Unexpected response: {response}")
         time.sleep(5)
 
-def translate_text_deepl(text):
-    url = "https://api-free.deepl.com/v2/translate"
-    params = {
-        'auth_key': OPENAI_API_KEY,
-        'text': text,
-        'target_lang': 'UR'  # Urdu
-    }
-    response = requests.post(url, data=params)
-    if response.status_code != 200:
-        raise Exception(f"DeepL translation failed: {response.text}")
-    return response.json()['translations'][0]['text']
-
-def create_srt(transcript_json, translated_text):
+def create_srt(transcript_json):
     words = transcript_json.get('words', [])
     if not words:
         with open('subs.srt', 'w', encoding='utf-8') as f:
-            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{translated_text}\n")
+            f.write(f"1\n00:00:00,000 --> 00:10:00,000\n{transcript_json.get('text', '')}\n")
         return
 
     segments = []
@@ -86,21 +67,21 @@ def create_srt(transcript_json, translated_text):
     for word in words:
         start = word['start']
         end = word['end']
+        text = word['text']
+
         if chunk_start is None:
             chunk_start = start
         chunk_end = end
-        chunk.append((start, end))
+        chunk.append(text)
+
         if chunk_end - chunk_start > max_duration_ms:
-            segments.append((chunk_start, chunk_end))
+            segments.append((chunk_start, chunk_end, ' '.join(chunk)))
             chunk = []
             chunk_start = None
             chunk_end = None
 
     if chunk:
-        segments.append((chunk_start, chunk_end))
-
-    urdu_lines = translated_text.split(' ')
-    avg_words = max(1, len(urdu_lines) // len(segments))
+        segments.append((chunk_start, chunk_end, ' '.join(chunk)))
 
     def ms_to_srt_time(ms):
         s, ms = divmod(ms, 1000)
@@ -109,13 +90,10 @@ def create_srt(transcript_json, translated_text):
         return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
     with open('subs.srt', 'w', encoding='utf-8') as f:
-        i = 0
-        for idx, (start, end) in enumerate(segments):
-            line = ' '.join(urdu_lines[i:i+avg_words])
-            i += avg_words
-            f.write(f"{idx+1}\n")
+        for i, (start, end, text) in enumerate(segments, 1):
+            f.write(f"{i}\n")
             f.write(f"{ms_to_srt_time(start)} --> {ms_to_srt_time(end)}\n")
-            f.write(line + "\n\n")
+            f.write(text + "\n\n")
 
 def read_srt_file():
     if os.path.exists('subs.srt'):
@@ -136,8 +114,7 @@ def upload():
     transcript_id = request_transcription(upload_url)
     transcript_json = wait_for_completion(transcript_id)
 
-    translated = translate_text_deepl(transcript_json.get('text', ''))
-    create_srt(transcript_json, translated)
+    create_srt(transcript_json)
 
     srt_text = read_srt_file()
     return render_template('edit.html', srt_text=srt_text)
