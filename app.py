@@ -30,7 +30,7 @@ def request_transcription(upload_url):
         "audio_url": upload_url,
         "language_code": "ur",  # Force transcription in Urdu
         "format_text": True,
-        "punctuate": True
+        "punctuate": True,
          "speech_model": "nano"
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
