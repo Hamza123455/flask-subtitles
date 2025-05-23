@@ -1,6 +1,9 @@
+<!-- edit.html -->
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit Subtitles</title>
   <style>
     body {
@@ -20,7 +23,7 @@
       font-size: 26px;
     }
 
-    form {
+    form, #progress-container {
       width: 100%;
       max-width: 700px;
       background-color: #fff;
@@ -58,12 +61,6 @@
       background-color: #45a049;
     }
 
-    #progress-container {
-      width: 100%;
-      max-width: 700px;
-      margin-top: 20px;
-    }
-
     #progress-bar-bg {
       background: #eee;
       border-radius: 10px;
@@ -83,12 +80,13 @@
       color: #333;
     }
 
-    #download-link {
-      display: none;
+    #download-link, .download-btn {
+      display: block;
       margin-top: 20px;
       font-size: 18px;
       color: #4CAF50;
       text-decoration: none;
+      text-align: center;
     }
 
     @media (max-width: 600px) {
@@ -106,7 +104,8 @@
     <button type="submit">Add Subtitles to Video</button>
   </form>
 
-  <!-- Progress bar and text -->
+  <a href="/download_srt" download class="download-btn">📄 Download SRT File</a>
+
   <div id="progress-container">
     <div id="progress-bar-bg">
       <div id="progress"></div>
@@ -114,7 +113,6 @@
     <div id="progress-text">Waiting...</div>
   </div>
 
-  <!-- Download link -->
   <a id="download-link" href="/download" download>⬇️ Download Subtitled Video</a>
 
   <script>
