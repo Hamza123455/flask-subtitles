@@ -1,10 +1,10 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, jsonify
 import subprocess
 import requests
 import time
 import os
 
-# Hardcoded API Key
+# AssemblyAI API Key
 ASSEMBLYAI_API_KEY = "e89c52b5983f4fcfbad631db7f43bd7d"
 
 app = Flask(__name__)
@@ -28,10 +28,11 @@ def upload_file_to_assemblyai(filename):
 def request_transcription(upload_url):
     json_data = {
         "audio_url": upload_url,
-        "language_code": "ur",  # Force transcription in Urdu
+        "language_code": "ur",
         "format_text": True,
         "punctuate": True,
-         "speech_model": "nano"
+        "speech_model": "nano",
+        "auto_chapters": False
     }
     response = requests.post(TRANSCRIPT_ENDPOINT, json=json_data, headers=headers)
     data = response.json()
@@ -48,8 +49,6 @@ def wait_for_completion(transcript_id):
             return response
         elif status == 'error':
             raise Exception("Transcription failed: " + response.get('error', 'Unknown error'))
-        elif status is None:
-            raise Exception(f"Unexpected response: {response}")
         time.sleep(5)
 
 def create_srt(transcript_json):
@@ -111,14 +110,16 @@ def upload():
     video = request.files['video']
     video.save('input.mp4')
 
-    upload_url = upload_file_to_assemblyai('input.mp4')
-    transcript_id = request_transcription(upload_url)
-    transcript_json = wait_for_completion(transcript_id)
+    try:
+        upload_url = upload_file_to_assemblyai('input.mp4')
+        transcript_id = request_transcription(upload_url)
+        transcript_json = wait_for_completion(transcript_id)
 
-    create_srt(transcript_json)
-
-    srt_text = read_srt_file()
-    return render_template('edit.html', srt_text=srt_text)
+        create_srt(transcript_json)
+        srt_text = read_srt_file()
+        return render_template('edit.html', srt_text=srt_text)
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 @app.route('/save_subtitles', methods=['POST'])
 def save_subtitles():
@@ -131,11 +132,15 @@ def save_subtitles():
         '-c:a', 'copy', 'static/output.mp4', '-y'
     ])
 
-    return "Done! <a href='/download'>Download Subtitled Video</a>"
+    return jsonify({"status": "success"})
 
 @app.route('/download')
 def download():
     return send_file("static/output.mp4", as_attachment=True)
+
+@app.route('/download_srt')
+def download_srt():
+    return send_file("subs.srt", as_attachment=True, download_name="subtitles.srt")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
