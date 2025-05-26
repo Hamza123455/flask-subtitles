@@ -127,20 +127,15 @@ def save_subtitles():
     with open('subs.srt', 'w', encoding='utf-8') as f:
         f.write(edited_srt)
 
-    subprocess.run([
-        'ffmpeg', '-i', 'input.mp4', '-vf', 'subtitles=subs.srt',
-        '-c:a', 'copy', 'static/output.mp4', '-y'
-    ])
-
     return jsonify({"status": "success"})
-
-@app.route('/download')
-def download():
-    return send_file("static/output.mp4", as_attachment=True)
 
 @app.route('/download_srt')
 def download_srt():
     return send_file("subs.srt", as_attachment=True, download_name="subtitles.srt")
+
+@app.route('/download')
+def download():
+    return "Subtitle burning (MP4) not available on Railway. Please use the .srt file in CapCut or VLC."
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
