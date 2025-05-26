@@ -137,5 +137,5 @@ def download_srt():
 def download():
     return "Subtitle burning (MP4) not available on Railway. Please use the .srt file in CapCut or VLC."
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run(debug=False, host="0.0.0.0", port=5000)
