@@ -1,10 +1,9 @@
-<!-- edit.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit Subtitles</title>
+  <title>Edit Urdu Subtitles</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -23,7 +22,7 @@
       font-size: 26px;
     }
 
-    form, #progress-container {
+    form {
       width: 100%;
       max-width: 700px;
       background-color: #fff;
@@ -61,26 +60,7 @@
       background-color: #45a049;
     }
 
-    #progress-bar-bg {
-      background: #eee;
-      border-radius: 10px;
-      height: 20px;
-      overflow: hidden;
-    }
-
-    #progress {
-      width: 0%;
-      height: 100%;
-      background: #4CAF50;
-      transition: width 0.5s ease-in-out;
-    }
-
-    #progress-text {
-      margin-top: 10px;
-      color: #333;
-    }
-
-    #download-link, .download-btn {
+    .download-btn {
       display: block;
       margin-top: 20px;
       font-size: 18px;
@@ -98,54 +78,12 @@
   </style>
 </head>
 <body>
-  <h1>Edit Subtitles</h1>
+  <h1>Edit Urdu Subtitles (.srt)</h1>
   <form id="subtitle-form" method="post" action="/save_subtitles">
     <textarea name="srt" rows="30" cols="100">{{ srt_text }}</textarea><br><br>
-    <button type="submit">Add Subtitles to Video</button>
+    <button type="submit">💾 Save Changes</button>
   </form>
 
-  <a href="/download_srt" download class="download-btn">📄 Download SRT File</a>
-
-  <div id="progress-container">
-    <div id="progress-bar-bg">
-      <div id="progress"></div>
-    </div>
-    <div id="progress-text">Waiting...</div>
-  </div>
-
-  <a id="download-link" href="/download" download>⬇️ Download Subtitled Video</a>
-
-  <script>
-    const form = document.getElementById('subtitle-form');
-    const progressBar = document.getElementById('progress');
-    const progressText = document.getElementById('progress-text');
-    const downloadLink = document.getElementById('download-link');
-
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-
-      progressBar.style.width = '10%';
-      progressText.innerText = 'Uploading subtitles...';
-
-      const formData = new FormData(form);
-      const response = await fetch(form.action, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.status === 'success') {
-          progressBar.style.width = '100%';
-          progressText.innerText = '✅ Subtitles burned successfully!';
-          downloadLink.style.display = 'inline-block';
-        } else {
-          progressText.innerText = '⚠️ Failed to burn subtitles.';
-        }
-      } else {
-        progressText.innerText = '❌ Error during subtitle upload.';
-      }
-    });
-  </script>
+  <a href="/download_srt" download class="download-btn">⬇️ Download Edited SRT File</a>
 </body>
 </html>
