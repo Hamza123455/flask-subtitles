@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { generateSubtitles } from 'basedsubtitles';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -6,7 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const videoFile = req.body.video;
-  // TO DO: Process the video file using BasedSubtitles code
-  // For now, just return a success message
-  res.status(200).send('Subtitles generated!');
+  // TO DO: Parse the uploaded file
+  const subtitles = await generateSubtitles(videoFile);
+  res.status(200).send(subtitles);
 }
