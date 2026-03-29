@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>BasedSubtitles Generator</title>
+  <title>Subtitle Generator</title>
 </head>
 <body>
-  <h1>Generate Subtitles</h1>
-  <form id="subtitle-form">
-    <input type="file" id="video-file" accept=".mp4,.mkv">
+  <h1>Upload Video</h1>
+  <form action="/api/generate-subtitles" method="post" enctype="multipart/form-data">
+    <input type="file" name="video" accept=".mp4,.mkv">
     <button type="submit">Generate Subtitles</button>
   </form>
-  <div id="output"></div>
-
-  <script src="script.js"></script>
 </body>
 </html>
